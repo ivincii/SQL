@@ -1,0 +1,199 @@
+CREATE TABLE Address_VIVI(
+AddressID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+Apt varchar(20),
+Street varchar(20),
+City varchar(20),
+State varchar(20),
+Country varchar(20),
+Zipcode varchar(20)
+)
+
+-- User Account
+
+
+CREATE TABLE UserAccountVIVI(
+UserID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+AddressID INT NOT NULL,
+FirstName varchar(20) NOT NULL,
+LastName varchar(20) NOT NULL,
+Phone varchar(20),
+Birthdate DATE,
+Email varchar(20),
+Gender varchar(20) NOT NULL CONSTRAINT DF_UserAccount_Gender DEFAULT 'N',
+CreatedDate DATE NOT NULL,
+CONSTRAINT FK_User_AddressID FOREIGN KEY (AddressID) REFERENCES Address_VIVI(AddressID),
+)
+
+
+-- Brand
+CREATE TABLE BrandVIVI(
+BrandID int IDENTITY(1,1) NOT NULL,
+BrandName nvarchar(255),
+CONSTRAINT PK_BrandID PRIMARY KEY (BrandID),
+)
+
+
+
+
+-- Seller
+
+
+CREATE TABLE SellerVIVI(
+SellerID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+UserID int,
+CONSTRAINT fk_Seller_UserID FOREIGN KEY (UserID)
+REFERENCES UserAccountVIVI(UserID)
+)
+
+
+-- Buyer
+
+
+
+
+CREATE TABLE BuyerVIVI(
+BuyerID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+UserID int,
+CONSTRAINT fk_Buyer_UserID FOREIGN KEY (UserID)
+REFERENCES UserAccountVIVI
+)
+
+
+-- Product Category
+
+
+CREATE TABLE Product_CategoryVIVI(
+ProductCategoryID int IDENTITY(1,1) NOT NULL,
+ProductCategoryName nvarchar(255),
+Gender varchar(40),
+CONSTRAINT PK_ProductCategoryID PRIMARY KEY (ProductCategoryID),
+CONSTRAINT CHK_Product_Category_Gender CHECK (Gender IN ('F','M','N'))
+)
+
+
+
+
+-- Product Type
+
+
+CREATE TABLE Product_TypeVIVI(
+ProductTypeID int IDENTITY(1,1) NOT NULL,
+BrandID int NOT NULL,
+ProductCategoryID int NOT NULL,
+ProductTypeName nvarchar(255),
+Size varchar(40),
+Color varchar(40),
+CONSTRAINT PK_ProductTypeID PRIMARY KEY (ProductTypeID),
+CONSTRAINT FK_Brand_BrandID FOREIGN KEY (BrandID) REFERENCES BrandVIVI(BrandID),
+CONSTRAINT FK_Product_Category_ProductCategoryID FOREIGN KEY (ProductCategoryID) REFERENCES Product_CategoryVIVI(ProductCategoryID)
+)
+
+
+
+
+
+
+-- Product
+
+
+
+
+CREATE TABLE ProductVIVI(
+ProductID int IDENTITY(1,1) NOT NULL
+CONSTRAINT PK_Product_ProductID PRIMARY KEY,
+ProductTypeID int NOT NULL
+CONSTRAINT FK_Productype_ProductTypeID FOREIGN KEY REFERENCES Product_TypeVIVI(ProductTypeID),
+SellerID int NOT NULL
+   CONSTRAINT FK_Seller_SellerID FOREIGN KEY REFERENCES SellerVIVI(SellerID),
+OriginalPrice money NOT NULL,
+ProductName varchar(100) NOT NULL,
+ProductDesc varchar(500) NOT NULL,
+DueDate datetime NOT NULL
+   CONSTRAINT DF_Product_DueDate DEFAULT(DateAdd(day, 14, CURRENT_TIMESTAMP)),
+CreatedDate datetime NOT NULL 
+   CONSTRAINT DF_Product_CreatedDate DEFAULT(CURRENT_TIMESTAMP),
+Status varchar(100) NOT NULL)
+
+
+
+
+-- Review
+
+
+CREATE TABLE ReviewVIVI(
+ReviewID int IDENTITY(1,1) NOT NULL,
+UserID int NOT NULL,
+ProductID int NOT NULL,
+CommentContent nvarchar(255),
+Ranking decimal(2,1),
+CONSTRAINT PK_ReviewID PRIMARY KEY (ReviewID),
+CONSTRAINT FK_UserAccount_UserID FOREIGN KEY (UserID) REFERENCES UserAccountVIVI(UserID),
+CONSTRAINT FK_Product_ProductID FOREIGN KEY (ProductID) REFERENCES ProductVIVI(ProductID),
+CONSTRAINT CHK_Ranking_Range CHECK (Ranking BETWEEN 0 AND 5)
+)
+
+-- Transactions
+
+
+CREATE TABLE TransactionVIVI(
+TransactionID int IDENTITY(1,1) NOT NULL
+   CONSTRAINT PK_Transaction_TransactionID PRIMARY KEY,
+BuyerID int NOT NULL
+   CONSTRAINT FK_Buyer_BuyerID FOREIGN KEY REFERENCES BuyerVIVI(BuyerID),
+ProductID int NOT NULL
+   CONSTRAINT FK_Transaction_ProductID FOREIGN KEY REFERENCES ProductVIVI(ProductID),
+ProductPrice money NOT NULL,
+TransactionDate datetime NOT NULL
+   CONSTRAINT DF_Transaction_TransactionDate DEFAULT(CURRENT_TIMESTAMP),
+Status varchar(100) NOT NULL)
+
+
+-- Cart
+
+
+CREATE TABLE CartVIVI(
+CartID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+UserID INT NOT NULL,
+ProductTypeID INT NOT NULL,
+CreatedDate DATE NOT NULL CONSTRAINT DF_User_Cart_CreatedDate DEFAULT(CURRENT_TIMESTAMP),
+CONSTRAINT FK_Cart_UserID FOREIGN KEY (UserID) REFERENCES UserAccountVIVI(UserID),
+CONSTRAINT FK_Cart_ProductTypeID FOREIGN KEY (ProductTypeID) REFERENCES Product_TypeVIVI(ProductTypeID)
+)
+
+-- Orders
+
+
+CREATE TABLE OrdersVIVI(
+OrderID int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+SellerID int NOT NULL,
+ProductID int NOT NULL,
+TransactionID int NOT NULL,
+BuyerID int NOT NULL,
+AddressID int NOT NULL,
+OrderDate date,
+ProductPrice money DEFAULT 10,
+ServiceFee money,
+FinalPrice AS ProductPrice + ServiceFee,
+CONSTRAINT fk_Order_SellerID FOREIGN KEY (SellerID)
+REFERENCES SellerVIVI(SellerID),
+CONSTRAINT fk_Order_ProductID FOREIGN KEY (ProductID)
+REFERENCES ProductVIVI(ProductID),
+CONSTRAINT fk_Order_TransactionID FOREIGN KEY (TransactionID)
+REFERENCES TransactionVIVI(TransactionID),
+CONSTRAINT fk_Order_AddressID FOREIGN KEY (AddressID)
+REFERENCES Address_VIVI(AddressID)
+)
+
+
+DBCC CHECKIDENT ('dbo.OrdersVI', RESEED, 1)
+INSERT INTO OrdersVIVI(
+SellerID, ProductID, TransactionID, BuyerID, AddressID, OrderDate, ProductPrice, ServiceFee)
+SELECT p.SellerID, p.ProductID, t.TransactionID, t.BuyerID, u.AddressID, t.TransactionDate, t.productPrice, '5' FROM TransactionVIVI t
+JOIN ProductVIVI p ON p.ProductID = p.ProductID
+JOIN BuyerVIVI buy ON buy.BuyerID = t.BuyerID
+JOIN UserAccountVIVI u ON u.UserID = buy.UserID
+WHERE t.Status = 'Completed';
+
+
+
+
